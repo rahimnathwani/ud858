@@ -607,6 +607,15 @@ class ConferenceApi(remote.Service):
         )
 
 # new stuff below here
+
+    @endpoints.method(SessionForm, SessionForm, path='session',
+            http_method='POST', name='createSession')
+    def createSession(self, request):
+        """Create new session."""
+        return self._createSessionObject(request)
+
+
+
     @endpoints.method(CONF_GET_REQUEST, SessionForms,
             path='getConferenceSessions/{websafeConferenceKey}',
             http_method='GET', name='getConferenceSessions')
