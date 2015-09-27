@@ -210,6 +210,56 @@ class ConferenceApi(remote.Service):
         prof = ndb.Key(Profile, user_id).get()
         return self._copyConferenceToForm(conf, getattr(prof, 'displayName'))
 
+# NEW STUFF HERE
+    def _copySessionToForm(self, sess, displayName):
+        """Copy relevant fields from Session to SessionForm."""
+        sf = SessionForm()
+        for field in sf.all_fields():
+            if hasattr(sess, field.name):
+                # convert Date to date string;
+                # convert Time to time string;
+                # just copy others
+                if field.name.endswith('Date') or field.name.endswith('Time'):
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
+                else:
+                    setattr(sf, field.name, getattr(sess, field.name))
+            elif field.name == "websafeKey":
+                setattr(sf, field.name, sess.key.urlsafe())
+        if displayName:
+            setattr(sf, 'conferenceDisplayName', displayName)
+        sf.check_initialized()
+        return sf
+
+
+    def _createSessionObject(self, request):
+        """Create or update Session object, returning SessionForm/request."""
+        if not request.name:
+            raise endpoints.BadRequestException("Session 'name' field required")
+
+        # copy SessionForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+        del data['websafeKey']
+        del data['conferenceDisplayName']
+
+        # convert dates from strings to Date objects
+        # convert times from strings to Time objects
+        data['sessionDate'] = datetime.strptime(data['sessionDate'][:10], "%Y-%m-%d").date()
+        data['startTime'] = datetime.strptime(data['startTime'][:5], "%H:%M").time()
+        data['durationTime'] = datetime.strptime(data['durationTime'][:5], "%H:%M").time()
+        # generate Conferece Key based on conference ID and Session
+        # ID based on Conference key get Session key from ID
+        conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        s_id = Session.allocate_ids(size=1, parent=conf_key)[0]
+        s_key = ndb.Key(Session, s_id, parent=conf_key)
+        data['key'] = s_key
+        data['conferenceId'] = request.conferenceId = request.websafeConferenceKey
+
+        # create Session
+        Session(**data).put()
+        return request
+
+
+# OLD STUFF BELOW HERE
 
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
             http_method='POST', name='createConference')
@@ -555,6 +605,29 @@ class ConferenceApi(remote.Service):
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, "") for conf in q]
         )
+
+# new stuff below here
+    @endpoints.method(CONF_GET_REQUEST, SessionForms,
+            path='getConferenceSessions/{websafeConferenceKey}',
+            http_method='GET', name='getConferenceSessions')
+    def getConferenceSessions(self, request):
+        """Return sessions for particular conference."""
+        # Find the conference specified in the API call
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+        # TODO MAKE SURE THAT ANCESTOR RELATIONSHIP IS DEFINED
+        sessions = Session.query(ancestor=ndb.Key(Conference, conf))
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(conf, getattr(prof, 'displayName'))
+                   for session in sessions]
+        )
+
+
+
+
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
