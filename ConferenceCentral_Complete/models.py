@@ -128,7 +128,7 @@ class SessionForm(messages.Message):
     durationTime    = messages.StringField(4)
     typeOfSession   = messages.StringField(5)
     sessionDate     = messages.StringField(6)
-    startTime       = messages.IntegerField(7)
+    startTime       = messages.StringField(7)
     conferenceId    = messages.StringField(8)
     websafeKey      = messages.StringField(9)
     conferenceDisplayName = messages.StringField(10)
@@ -136,4 +136,22 @@ class SessionForm(messages.Message):
 class SessionForms(messages.Message):
     """SessionForms -- multiple Session outbound form message"""
     items = messages.MessageField(SessionForm, 1, repeated=True)
+
+class Wish(ndb.Model):
+    """Wish -- Wish object"""
+    sessionId          = ndb.StringProperty()
+    userId             = ndb.StringProperty()
+
+
+class WishForm(messages.Message):
+    """WishForm -- Wish outbound form message"""
+    sessionId          = messages.StringField(1)
+    userId             = messages.StringField(2)
+    sessionDisplayName = messages.StringField(3)
+    userDisplayName    = messages.StringField(4)
+    websafeKey         = messages.StringField(5)
+
+class WishForms(messages.Message):
+    """WishForms -- multiple Wish outbound form message"""
+    items = messages.MessageField(WishForm, 1, repeated=True)
 
