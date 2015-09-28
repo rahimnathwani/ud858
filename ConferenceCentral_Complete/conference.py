@@ -16,6 +16,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 from datetime import datetime
 
 import endpoints
+import logging
 from protorpc import messages
 from protorpc import message_types
 from protorpc import remote
@@ -248,11 +249,11 @@ class ConferenceApi(remote.Service):
         data['durationTime'] = datetime.strptime(data['durationTime'][:5], "%H:%M").time()
         # generate Conferece Key based on conference ID and Session
         # ID based on Conference key get Session key from ID
-        conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        conf_key = ndb.Key(urlsafe=request.conferenceId)
         s_id = Session.allocate_ids(size=1, parent=conf_key)[0]
         s_key = ndb.Key(Session, s_id, parent=conf_key)
         data['key'] = s_key
-        data['conferenceId'] = request.conferenceId = request.websafeConferenceKey
+        data['conferenceId'] = request.conferenceId
 
         # create Session
         Session(**data).put()
@@ -622,15 +623,17 @@ class ConferenceApi(remote.Service):
     def getConferenceSessions(self, request):
         """Return sessions for particular conference."""
         # Find the conference specified in the API call
-        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        conf_obj = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        conf = request.websafeConferenceKey
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
+        logging.info(conf)
         # TODO MAKE SURE THAT ANCESTOR RELATIONSHIP IS DEFINED
-        sessions = Session.query(ancestor=ndb.Key(Conference, conf))
+        sessions = Session.query(Session.conferenceId == conf)
         # return set of SessionForm objects per Session
         return SessionForms(
-            items=[self._copySessionToForm(conf, getattr(prof, 'displayName'))
+            items=[self._copySessionToForm(session, getattr(conf_obj, 'name'))
                    for session in sessions]
         )
 
