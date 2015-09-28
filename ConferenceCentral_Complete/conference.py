@@ -745,7 +745,11 @@ class ConferenceApi(remote.Service):
         sess_keys = [ndb.Key(urlsafe=wssk) for
                      wssk in prof.sessionKeysToAttend]
         sessions = ndb.get_multi(sess_keys)
-        confs = set(ndb.Key(urlsafe=s.conferenceId).get() for s in sessions)
+        confs = [ndb.Key(urlsafe=s.conferenceId).get() for s in sessions]
+        uniq_confs = []
+        for c in confs:
+            if c not in uniq_confs:
+                uniq_confs.append(c)
 
         # return set of ConferenceForm objects per Conference
         return ConferenceForms(items=[self._copyConferenceToForm(conf, '')
