@@ -242,7 +242,6 @@ class ConferenceApi(remote.Service):
         sf.check_initialized()
         return sf
 
-
     def _createSessionObject(self, request):
         """Create or update Session object, returning SessionForm/request."""
         user = endpoints.get_current_user()
@@ -253,9 +252,9 @@ class ConferenceApi(remote.Service):
         conf_key = ndb.Key(urlsafe=request.conferenceId)
         conf_obj = conf_key.get()
         if user_id != getattr(conf_obj, 'organizerUserId'):
-            raise endpoints.UnauthorizedException('Only conference owner can do that')
+            raise endpoints.UnauthorizedException('Only owner can do that')
         if not request.name:
-            raise endpoints.BadRequestException("Session 'name' field required")
+            raise endpoints.BadRequestException("'name' field is required")
 
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
@@ -275,9 +274,6 @@ class ConferenceApi(remote.Service):
         # create Session
         Session(**data).put()
         return request
-
-
-# OLD STUFF BELOW HERE
 
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
             http_method='POST', name='createConference')
@@ -754,5 +750,20 @@ class ConferenceApi(remote.Service):
         # return set of ConferenceForm objects per Conference
         return ConferenceForms(items=[self._copyConferenceToForm(conf, '')
                                       for conf in confs])
+
+    @endpoints.method(SESS_TYPE_GET_REQUEST, SessionForms,
+                      path='getAllConferencesSessionsByType/{typeOfSession}',
+                      http_method='GET', name='getAllConferencesSessionsByType')
+    def getAllConferencesSessionsByType(self, request):
+        """Return all sessions for all conferences, of a particular type."""
+        typeOfSession = request.typeOfSession
+        sessions = Session.query(Session.typeOfSession == typeOfSession)
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(sess, getattr(ndb.Key(urlsafe=sess.conferenceId).get(), 'name'))
+                   for sess in sessions]
+        )
+
+
 
 api = endpoints.api_server([ConferenceApi])  # register API
