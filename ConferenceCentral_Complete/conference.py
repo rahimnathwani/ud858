@@ -245,6 +245,15 @@ class ConferenceApi(remote.Service):
 
     def _createSessionObject(self, request):
         """Create or update Session object, returning SessionForm/request."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+        logging.info(user_id)
+        conf_key = ndb.Key(urlsafe=request.conferenceId)
+        conf_obj = conf_key.get()
+        if user_id != getattr(conf_obj, 'organizerUserId'):
+            raise endpoints.UnauthorizedException('Only conference owner can do that')
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
 
@@ -258,9 +267,6 @@ class ConferenceApi(remote.Service):
         data['sessionDate'] = datetime.strptime(data['sessionDate'][:10], "%Y-%m-%d").date()
         data['startTime'] = datetime.strptime(data['startTime'][:5], "%H:%M").time()
         data['durationTime'] = datetime.strptime(data['durationTime'][:5], "%H:%M").time()
-        # generate Conferece Key based on conference ID and Session
-        # ID based on Conference key get Session key from ID
-        conf_key = ndb.Key(urlsafe=request.conferenceId)
         s_id = Session.allocate_ids(size=1, parent=conf_key)[0]
         s_key = ndb.Key(Session, s_id, parent=conf_key)
         data['key'] = s_key
