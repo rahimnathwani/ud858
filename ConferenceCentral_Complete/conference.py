@@ -706,6 +706,21 @@ class ConferenceApi(remote.Service):
         return SessionForms(items=[self._copySessionToForm(session, getattr(ndb.Key(urlsafe=session.conferenceId).get(),
                                                                             'name')) for session in sessions])
 
+    @endpoints.method(message_types.VoidMessage, SessionForms,
+                      path='getNonWorkShopsStartingBefore7pm',
+                      http_method='GET', name='getNonWorkShopsStartingBefore7pm')
+    def getNonWorkShopsStartingBefore7pm(self, request):
+        """Return sessions that aren't workshops, that start before 7pm."""
+        sessionsBeforeSeven = Session.query(Session.startTime < datetime.strptime('19:00', "%H:%M").time())
+        sessions = []
+        # filter out the workshops
+        for sess in sessionsBeforeSeven:
+            if sess.typeOfSession.lower() != 'workshop':
+                sessions.append(sess)
+        # return set of SessionForm objects per Session
+        return SessionForms(items=[self._copySessionToForm(session, getattr(ndb.Key(urlsafe=session.conferenceId).get(),
+                                                                            'name')) for session in sessions])
+
 # Endpoints related to wishlists
 
     @endpoints.method(SESS_GET_REQUEST, BooleanMessage,
@@ -761,8 +776,9 @@ class ConferenceApi(remote.Service):
         # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(sess, getattr(ndb.Key(urlsafe=sess.conferenceId).get(), 'name'))
-                   for sess in sessions]
-        )
+                   for sess in sessions])
+
+
 
 
 
