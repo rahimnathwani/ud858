@@ -23,10 +23,12 @@ App Engine application for the Udacity training course.
 1. (Optional) Generate your client library(ies) with [the endpoints tool][6].
 1. Deploy your application.
 
-
+## Notes
+'Datastore rejects queries using inequality filtering on more than one property.'[according to the documentation][7].  So, we solve this by getting all the results after 7pm, and then excluding workshops using a Python list comprehension.
 [1]: https://developers.google.com/appengine
 [2]: http://python.org
 [3]: https://developers.google.com/appengine/docs/python/endpoints/
 [4]: https://console.developers.google.com/
 [5]: https://localhost:8080/
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
+[7]: https://cloud.google.com/appengine/docs/python/ndb/queries#neq_and_in
