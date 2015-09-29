@@ -23,8 +23,17 @@ App Engine application for the Udacity training course.
 1. (Optional) Generate your client library(ies) with [the endpoints tool][6].
 1. Deploy your application.
 
-## Notes
-'Datastore rejects queries using inequality filtering on more than one property.'[according to the documentation][7].  So, we solve this by getting all the results after 7pm, and then excluding workshops using a Python list comprehension.
+## Notes/ Design Choices
+### Sessions and Speakers
+* Sessions are implemented as models, in `models.py`.  `speaker` is an attribute of the `Session` object, and it's just a string rather than a profile ID, so that we can include speakers who are not users of the site.  We could break it out into a new entity in future if we want to store more details about each speaker.
+* `typeOfSession` is also free text.  We could use an enum, but that would entail admin overhead.  We could use session type entity, but that would require us to decide who could create new types, and would further complicate the UI.
+* Start time and duration are implemented using `datetime` so that we can add them if we ever need to calculate the end time in future.
+### Additional queries
+* `getAllConferencesSessionsByType` takes a typeOfSession and returns all sessions across _all_ conferences, that match.  So, the user can choose sessions without knowing which conferences are happening first.
+* `getConferencesWithWishlistedSessions` goes through the user's session wishlist, and shows the set of conferences for which the user will need to register.  This is useful for the user who chooses sessions first, then registers for the best conferences.
+### Query problem
+'Datastore rejects queries using inequality filtering on more than one property.'[according to the documentation][7].  This is due to the way indexes work.  We work around this in `getNonWorkShopsStartingBefore7pm`by querying to get all the results after 7pm, and then loop through them to pick out the ones which are not workshops.
+### References
 [1]: https://developers.google.com/appengine
 [2]: http://python.org
 [3]: https://developers.google.com/appengine/docs/python/endpoints/

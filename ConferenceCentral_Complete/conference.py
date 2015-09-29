@@ -102,6 +102,15 @@ CONF_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
+CONF_SPEAKER_POST_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+    speaker=messages.StringField(2),
+)
+
+class SpeakerResponseMessageClass(messages.Message):
+    featuredSpeaker = messages.StringField(1)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -273,6 +282,11 @@ class ConferenceApi(remote.Service):
 
         # create Session
         Session(**data).put()
+        taskqueue.add(params={'websafeConferenceKey': request.conferenceId,
+                              'speaker': data['speaker']},
+                      url='/tasks/setFeaturedSpeaker'
+        )
+
         return request
 
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
@@ -501,6 +515,17 @@ class ConferenceApi(remote.Service):
 
         return announcement
 
+# - - - Support function for task queue workers - - - - -
+    @staticmethod
+    def _setFeaturedSpeaker(websafeConferenceKey, speaker):
+        """Determine whether or not to assign this speaker as the featured speaker."""
+        # get Conference object from request; bail if not found
+        conf = ndb.Key(urlsafe=websafeConferenceKey).get()
+        # If the speaker's name starts with 'R', then make them the featured speaker.
+        if conf.featuredSpeaker is None or speaker.upper()[0] == 'R':
+            conf.featuredSpeaker = speaker
+            conf.put()
+        prof = conf.key.parent().get()
 
     @endpoints.method(message_types.VoidMessage, StringMessage,
             path='conference/announcement/get',
@@ -666,7 +691,6 @@ class ConferenceApi(remote.Service):
         if not conf:
             raise endpoints.NotFoundException(
                 'No conf found with key: %s' % request.websafeConferenceKey)
-        logging.info(conf)
         # TODO MAKE SURE THAT ANCESTOR RELATIONSHIP IS DEFINED
         sessions = Session.query(Session.conferenceId == conf)
         # return set of SessionForm objects per Session
@@ -778,8 +802,19 @@ class ConferenceApi(remote.Service):
             items=[self._copySessionToForm(sess, getattr(ndb.Key(urlsafe=sess.conferenceId).get(), 'name'))
                    for sess in sessions])
 
-
-
+    @endpoints.method(CONF_GET_REQUEST, SpeakerResponseMessageClass,
+            path='conference/getFeaturedSpeaker',
+            http_method='GET', name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Return featured speaker for conference (by websafeConferenceKey)."""
+        # get Conference object from request; bail if not found
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+        prof = conf.key.parent().get()
+        # return featured speaker
+        return SpeakerResponseMessageClass(featuredSpeaker=conf.featuredSpeaker)
 
 
 api = endpoints.api_server([ConferenceApi])  # register API
