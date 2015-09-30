@@ -534,7 +534,7 @@ class ConferenceApi(remote.Service):
         # get Conference object from request; bail if not found
         conf_obj = ndb.Key(urlsafe=websafeConferenceKey).get()
         sessions = Session.query(Session.conferenceId == websafeConferenceKey,
-                                 speaker == speaker)
+                                 Session.speaker == speaker)
         session_string = ", ".join(['Session: ' + session.name for session in sessions])
         # We're going to have one key per conference, as each conference can have
         # its own featured speaker.  Using FEAT_FOR to distinguish from other types of keys.
