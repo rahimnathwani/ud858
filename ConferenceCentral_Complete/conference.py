@@ -538,7 +538,7 @@ class ConferenceApi(remote.Service):
         session_string = ", ".join(['Session: ' + session.name for session in sessions])
         # We're going to have one key per conference, as each conference can have
         # its own featured speaker.  Using FEAT_FOR to distinguish from other types of keys.
-        if len(sessions) > 1:
+        if sessions.count() > 1:
             memcache.add('FEAT_FOR'+websafeConferenceKey,
                          'Featured speaker: ' +
                          speaker +
@@ -827,8 +827,11 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
         # return featured speaker string
-        return SpeakerResponseMessageClass(memcache.get('FEAT_FOR'+request.websafeConferenceKey)
-                                           or 'No featured speaker')
+        message_text = memcache.get('FEAT_FOR'+request.websafeConferenceKey) or 'No featured speaker'
+        logging.info(message_text)
+        response = SpeakerResponseMessageClass()
+        response.featuredSpeaker = message_text
+        return response
 
 
 api = endpoints.api_server([ConferenceApi])  # register API
