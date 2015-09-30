@@ -751,11 +751,9 @@ class ConferenceApi(remote.Service):
     def getNonWorkShopsStartingBefore7pm(self, request):
         """Return sessions that aren't workshops, that start before 7pm."""
         sessionsBeforeSeven = Session.query(Session.startTime < datetime.strptime('19:00', "%H:%M").time())
-        sessions = []
         # filter out the workshops
-        for sess in sessionsBeforeSeven:
-            if sess.typeOfSession.lower() != 'workshop':
-                sessions.append(sess)
+        sessions = [sess for sess in sessionsBeforeSeven
+                    if sess.typeOfSession.lower() != 'workshop']
         # return set of SessionForm objects per Session
         return SessionForms(items=[self._copySessionToForm(session, getattr(ndb.Key(urlsafe=session.conferenceId).get(),
                                                                             'name')) for session in sessions])
