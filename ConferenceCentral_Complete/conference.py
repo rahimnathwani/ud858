@@ -60,6 +60,16 @@ DEFAULTS = {
     "topics": ["Default", "Topic"],
 }
 
+SESS_DEFAULTS = {
+    "name": "Session default name",
+    "highlights": "no highlights.  only lowlights.",
+    "speaker": "John Smith",
+    "durationTime": "01:30",
+    "typeOfSession": "lecture",
+    "sessionDate": "2015-11-11",
+    "startTime": "15:00",
+}
+
 OPERATORS = {
             'EQ':   '=',
             'GT':   '>',
@@ -267,6 +277,11 @@ class ConferenceApi(remote.Service):
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['websafeKey']
         del data['conferenceDisplayName']
+        # add default values for those missing
+        for df in SESS_DEFAULTS:
+            if data[df] in (None, []):
+                data[df] = SESS_DEFAULTS[df]
+                setattr(request, df, SESS_DEFAULTS[df])
         # convert dates from strings to Date objects
         # convert times from strings to Time objects
         data['sessionDate'] = datetime.strptime(data['sessionDate'][:10], "%Y-%m-%d").date()
