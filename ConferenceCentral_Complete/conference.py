@@ -257,19 +257,16 @@ class ConferenceApi(remote.Service):
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
-        logging.info(user_id)
         conf_key = ndb.Key(urlsafe=request.conferenceId)
         conf_obj = conf_key.get()
         if user_id != getattr(conf_obj, 'organizerUserId'):
             raise endpoints.UnauthorizedException('Only owner can do that')
         if not request.name:
             raise endpoints.BadRequestException("'name' field is required")
-
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['websafeKey']
         del data['conferenceDisplayName']
-
         # convert dates from strings to Date objects
         # convert times from strings to Time objects
         data['sessionDate'] = datetime.strptime(data['sessionDate'][:10], "%Y-%m-%d").date()
@@ -279,15 +276,14 @@ class ConferenceApi(remote.Service):
         s_key = ndb.Key(Session, s_id, parent=conf_key)
         data['key'] = s_key
         data['conferenceId'] = request.conferenceId
-
         # create Session
-        Session(**data).put()
+        session = Session(**data)
+        session.put()
         taskqueue.add(params={'websafeConferenceKey': request.conferenceId,
                               'speaker': data['speaker']},
-                      url='/tasks/setFeaturedSpeaker'
-        )
-
-        return request
+                      url='/tasks/setFeaturedSpeaker')
+        return self._copySessionToForm(session,
+                                       getattr(ndb.Key(urlsafe=session.conferenceId).get(), 'name'))
 
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
             http_method='POST', name='createConference')
@@ -518,14 +514,20 @@ class ConferenceApi(remote.Service):
 # - - - Support function for task queue workers - - - - -
     @staticmethod
     def _setFeaturedSpeaker(websafeConferenceKey, speaker):
-        """Determine whether or not to assign this speaker as the featured speaker."""
+        """If there is more than one session by this speaker at this conference,
+        also add a new Memcache entry that features the speaker and session names."""
         # get Conference object from request; bail if not found
-        conf = ndb.Key(urlsafe=websafeConferenceKey).get()
-        # If the speaker's name starts with 'R', then make them the featured speaker.
-        if conf.featuredSpeaker is None or speaker.upper()[0] == 'R':
-            conf.featuredSpeaker = speaker
-            conf.put()
-        prof = conf.key.parent().get()
+        conf_obj = ndb.Key(urlsafe=websafeConferenceKey).get()
+        sessions = Session.query(Session.conferenceId == websafeConferenceKey,
+                                 speaker == speaker)
+        session_string = ", ".join(['Session: ' + session.name for session in sessions])
+        # We're going to have one key per conference, as each conference can have
+        # its own featured speaker.  Using FEAT_FOR to distinguish from other types of keys.
+        if len(sessions) > 1:
+            memcache.add('FEAT_FOR'+websafeConferenceKey,
+                         'Featured speaker: ' +
+                         speaker +
+                         session_string)
 
     @endpoints.method(message_types.VoidMessage, StringMessage,
             path='conference/announcement/get',
@@ -812,9 +814,9 @@ class ConferenceApi(remote.Service):
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
-        prof = conf.key.parent().get()
-        # return featured speaker
-        return SpeakerResponseMessageClass(featuredSpeaker=conf.featuredSpeaker)
+        # return featured speaker string
+        return SpeakerResponseMessageClass(memcache.get('FEAT_FOR'+request.websafeConferenceKey)
+                                           or 'No featured speaker')
 
 
 api = endpoints.api_server([ConferenceApi])  # register API
