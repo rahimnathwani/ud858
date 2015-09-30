@@ -608,22 +608,19 @@ class ConferenceApi(remote.Service):
         """Add selected session to/from wishlist."""
         retval = None
         prof = self._getProfileFromUser() # get user Profile
-
         # check if sess exists given SessionKey
         # get session; check that it exists
         wssk = request.websafeSessionKey
         sess = ndb.Key(urlsafe=wssk).get()
         if not sess:
             raise endpoints.NotFoundException(
-                'No session found with key: %s' % wsck)
-
+                'No session found with key: %s' % wssk)
         # add to wishlist
         if wssk in prof.sessionKeysToAttend:
             raise ConflictException(
                 "You have already added this session to your wishlist")
         prof.sessionKeysToAttend.append(wssk)
         retval = True
-
         # write things back to the datastore & return
         prof.put()
         return BooleanMessage(data=retval)
@@ -703,12 +700,13 @@ class ConferenceApi(remote.Service):
     def getConferenceSessions(self, request):
         """Return sessions for particular conference."""
         # Find the conference specified in the API call
-        conf_obj = ndb.Key(urlsafe=request.websafeConferenceKey).get()
         conf = request.websafeConferenceKey
-        if not conf:
+        conf_obj = ndb.Key(urlsafe=conf).get()
+        if not conf_obj:
             raise endpoints.NotFoundException(
-                'No conf found with key: %s' % request.websafeConferenceKey)
+                'No conf found with key: %s' % conf)
         # TODO MAKE SURE THAT ANCESTOR RELATIONSHIP IS DEFINED
+        # sessions = Session.query(ancestor=conf_obj.key)
         sessions = Session.query(Session.conferenceId == conf)
         # return set of SessionForm objects per Session
         return SessionForms(
@@ -722,12 +720,12 @@ class ConferenceApi(remote.Service):
     def getConferenceSessionsByType(self, request):
         """Return sessions for particular conference, of a particular type."""
         # Find the conference specified in the API call
-        conf_obj = ndb.Key(urlsafe=request.websafeConferenceKey).get()
         conf = request.websafeConferenceKey
+        conf_obj = ndb.Key(urlsafe=conf).get()
         typeOfSession = request.typeOfSession
-        if not conf:
+        if not conf_obj:
             raise endpoints.NotFoundException(
-                'No conf found with key: %s' % request.websafeConferenceKey)
+                'No conf found with key: %s' % conf)
         sessions = Session.query(Session.conferenceId == conf,
                                  Session.typeOfSession == typeOfSession)
         # return set of SessionForm objects per Session
