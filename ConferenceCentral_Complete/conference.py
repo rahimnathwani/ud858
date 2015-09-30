@@ -773,10 +773,10 @@ class ConferenceApi(remote.Service):
     def getSessionsInWishlist(self, request):
         """Get list of sessions in user's wishlist."""
         prof = self._getProfileFromUser()  # get user Profile
+        # get session keys and sessions
         sess_keys = [ndb.Key(urlsafe=wssk)
                      for wssk in prof.sessionKeysToAttend]
         sessions = ndb.get_multi(sess_keys)
-
         # return set of SessionForm objects per Session
         return SessionForms(items=[self._copySessionToForm(sess,
                             getattr(ndb.Key(urlsafe=sess.conferenceId).get(),
@@ -794,6 +794,7 @@ class ConferenceApi(remote.Service):
                      wssk in prof.sessionKeysToAttend]
         sessions = ndb.get_multi(sess_keys)
         confs = [ndb.Key(urlsafe=s.conferenceId).get() for s in sessions]
+        # set() only works with immutable objects, so loop through instead
         uniq_confs = []
         for c in confs:
             if c not in uniq_confs:
